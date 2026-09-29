@@ -54,4 +54,22 @@ scripts/templates/assets when needed
 This keeps the primary workflow legible while making deeper material available
 when it is relevant.
 
+## Authoring references
+
+Consult these sources when designing or reviewing a skill:
+
+1. The [Agent Skills specification](https://agentskills.io/specification)
+   defines the portable format requirements.
+2. [Agent Skills authoring best practices](https://agentskills.io/skill-creation/best-practices)
+   provide agent-neutral design guidance.
+3. [OpenAI's skill documentation](https://learn.chatgpt.com/docs/build-skills)
+   documents ChatGPT and Codex behavior.
+4. [OpenAI's skill evaluation guide](https://developers.openai.com/blog/eval-skills)
+   describes systematic, eval-driven iteration.
+
+For contributions to this repository, follow its conventions where the sources
+allow implementation choices. The
+[Agent Skills documentation index](https://agentskills.io/llms.txt) provides
+machine-readable links to further guidance.
+
 <!-- SPDX-License-Identifier: CC-BY-NC-SA-4.0 -->
