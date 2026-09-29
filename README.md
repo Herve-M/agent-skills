@@ -52,6 +52,22 @@ or materially incorporated third-party material must also be recorded in
 Install [mise](https://mise.jdx.dev/), then run:
 
 ```bash
+mise install
+mise run install-hooks
+```
+
+The installed pre-commit hook removes trailing whitespace, checks Markdown with
+rumdl, and then formats Markdown with rumdl. If a commit changes files, review
+and stage the changes before committing again. Run the hooks manually against
+the whole repository with:
+
+```bash
+mise run check-hooks
+```
+
+The remaining repository checks and maintenance tasks are:
+
+```bash
 mise run validate
 mise run check-licenses
 mise run lint-markdown

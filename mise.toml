@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 [tools]
+prek = "0.5.4"
 rumdl = "0.2.77"
 
 [tasks.validate]
@@ -22,6 +23,14 @@ run = "rumdl fmt --check ."
 [tasks.format-markdown]
 description = "Format Markdown files"
 run = "rumdl fmt ."
+
+[tasks.install-hooks]
+description = "Install repository Git hooks"
+run = "prek install"
+
+[tasks.check-hooks]
+description = "Run repository hooks against all files"
+run = "prek run --all-files"
 
 [tasks.list-skills]
 description = "List immediate skill directories"

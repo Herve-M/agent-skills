@@ -27,7 +27,9 @@ check_structure() {
         LICENSE.md \
         README.md \
         THIRD_PARTY_NOTICES.md \
+        mise.lock \
         mise.toml \
+        prek.toml \
         LICENSES/CC-BY-NC-SA-4.0.txt \
         LICENSES/MPL-2.0.txt \
         skills/README.md \
