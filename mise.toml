@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: MPL-2.0
+
+[tools]
+prek = "0.5.4"
+rumdl = "0.2.77"
+yq = "4.54.1"
+
+[tasks.validate]
+description = "Validate repository structure, licensing, and Markdown"
+run = "tooling/validate.sh validate"
+
+[tasks.check-licenses]
+description = "Check repository licensing and SPDX conventions"
+run = "tooling/validate.sh check-licenses"
+
+[tasks.lint-markdown]
+description = "Lint Markdown files"
+run = "tooling/validate.sh lint-markdown"
+
+[tasks.check-markdown-format]
+description = "Check Markdown formatting without changing files"
+run = "rumdl fmt --check ."
+
+[tasks.format-markdown]
+description = "Format Markdown files"
+run = "rumdl fmt ."
+
+[tasks.install-hooks]
+description = "Install repository Git hooks"
+run = "prek install"
+
+[tasks.check-hooks]
+description = "Run repository hooks against all files"
+run = "prek run --all-files"
+
+[tasks.list-skills]
+description = "List immediate skill directories"
+run = "tooling/validate.sh list-skills"
+
+[tasks.test-validator]
+description = "Run repository validator regression tests"
+run = "tooling/tests/validate.sh"

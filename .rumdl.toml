@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: MPL-2.0
+
+[global]
+exclude = ["third_party/**"]
+extend-enable = ["MD060"]
+flavor = "standard"
+line-length = 80
+respect-gitignore = true
+
+[per-file-ignores]
+".github/pull_request_template.md" = ["MD041"]
+"skills/**/templates/**/*.md" = ["MD041"]
+
+[MD003]
+style = "atx"
+
+[MD004]
+style = "dash"
+
+[MD013]
+reflow = true
+tables = false
+
+[MD029]
+style = "ordered"
+
+[MD046]
+style = "fenced"
+
+[MD048]
+style = "backtick"
+
+[MD049]
+style = "asterisk"
+
+[MD050]
+style = "asterisk"
+
+[MD051]
+anchor-style = "github"
+
+[MD055]
+style = "leading_and_trailing"
+
+[MD060]
+enabled = true
+style = "aligned"
