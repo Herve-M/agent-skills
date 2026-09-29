@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "rvben.rumdl",
+    "hverlin.mise-vscode",
+    "tombi-toml.tombi",
+    "github.vscode-github-actions",
+    "redhat.vscode-yaml",
+    "editorconfig.editorconfig"
+  ]
+}
