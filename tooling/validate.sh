@@ -16,6 +16,59 @@ require_file() {
     fi
 }
 
+validate_skill_metadata() {
+    skill_file=$1
+
+    if ! command -v yq >/dev/null 2>&1; then
+        fail "yq is unavailable; run 'mise install'"
+        return
+    fi
+
+    if ! sed -n '1p' "$skill_file" | grep -qx -- '---' ||
+        ! yq --exit-status --front-matter=extract 'tag == "!!map"' "$skill_file" >/dev/null 2>&1
+    then
+        fail "invalid SKILL.md frontmatter: $skill_file"
+        return
+    fi
+
+    if ! yq --exit-status --front-matter=extract '
+        ((.name | tag) == "!!str") and
+        ((.name | length) > 0) and
+        ((.name | length) <= 64) and
+        (.name | test("^[a-z0-9]+(-[a-z0-9]+)*$")) and
+        ((.description | tag) == "!!str") and
+        ((.description | sub("^[[:space:]]+|[[:space:]]+$"; "") | length) > 0) and
+        ((.description | length) <= 1024)
+    ' "$skill_file" >/dev/null 2>&1
+    then
+        fail "invalid required skill metadata: $skill_file"
+        return
+    fi
+
+    metadata_name=$(yq --unwrapScalar --front-matter=extract '.name' "$skill_file")
+    directory_name=$(basename "$(dirname "$skill_file")")
+    if [ "$metadata_name" != "$directory_name" ]; then
+        fail "skill name does not match directory: $skill_file"
+    fi
+}
+
+check_skills() {
+    for skill_dir in skills/*/
+    do
+        [ -d "$skill_dir" ] || continue
+        skill_name=$(basename "$skill_dir")
+        if [ "${#skill_name}" -gt 64 ] ||
+            ! printf '%s\n' "$skill_name" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$'
+        then
+            fail "invalid skill name: $skill_name"
+        fi
+        require_file "${skill_dir}SKILL.md"
+        if [ -f "${skill_dir}SKILL.md" ]; then
+            validate_skill_metadata "${skill_dir}SKILL.md"
+        fi
+    done
+}
+
 check_structure() {
     for path in \
         .editorconfig \
@@ -41,11 +94,7 @@ check_structure() {
         require_file "$path"
     done
 
-    for skill_dir in skills/*/
-    do
-        [ -d "$skill_dir" ] || continue
-        require_file "${skill_dir}SKILL.md"
-    done
+    check_skills
 
     nested_harness_dirs=$(find skills -type d \( -name .claude -o -name .agents \) -print)
     if [ -n "$nested_harness_dirs" ]; then
@@ -74,10 +123,20 @@ check_licenses() {
 
     find skills -type f -name '*.md' -print | while IFS= read -r path
     do
-        if ! grep -q 'SPDX-License-Identifier:' "$path"; then
-            printf 'ERROR: skill Markdown lacks an SPDX identifier: %s\n' "$path" >&2
-            exit 1
+        if grep -q 'SPDX-License-Identifier: CC-BY-NC-SA-4.0' "$path"; then
+            continue
         fi
+
+        if grep -q 'SPDX-License-Identifier:' "$path"; then
+            notice_entry="- **Used in:** \`$path\`"
+            if grep -Fq -- "$notice_entry" THIRD_PARTY_NOTICES.md; then
+                continue
+            fi
+            printf 'ERROR: unapproved skill Markdown license: %s\n' "$path" >&2
+        else
+            printf 'ERROR: skill Markdown lacks an SPDX identifier: %s\n' "$path" >&2
+        fi
+        exit 1
     done || failures=$((failures + 1))
 
     find skills tooling -type f \( \
@@ -104,6 +163,11 @@ check_markdown() {
 }
 
 list_skills() {
+    check_skills
+    if [ "$failures" -ne 0 ]; then
+        return
+    fi
+
     for skill_dir in skills/*/
     do
         [ -d "$skill_dir" ] || continue

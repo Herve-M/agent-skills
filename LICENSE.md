@@ -24,6 +24,10 @@ Individual files may contain SPDX identifiers or explicit licensing notices.
 Where present, a file-specific notice takes precedence over the repository-level
 defaults described above.
 
+Markdown under `skills/` uses `CC-BY-NC-SA-4.0` by default. A different SPDX
+license is accepted only for third-party material whose exact repository path is
+recorded in a `Used in` entry in `THIRD_PARTY_NOTICES.md`.
+
 ## Third-party material
 
 Third-party software, documentation, examples, assets, and other material remain

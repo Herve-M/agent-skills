@@ -9,6 +9,10 @@ and does not automatically inherit the repository's default licenses.
 When third-party material is copied, adapted, vendored, or materially
 incorporated into this repository, document it below.
 
+Use the exact repository-relative path in each `Used in` entry. License
+validation uses that entry to approve a non-default SPDX license under
+`skills/`.
+
 ## Notice template
 
 ### <Project or source name>

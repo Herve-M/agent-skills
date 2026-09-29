@@ -21,6 +21,8 @@ jobs:
         uses: jdx/mise-action@v4
       - name: Validate repository
         run: mise run validate
+      - name: Test repository validator
+        run: mise run test-validator
       - name: Check licenses
         run: mise run check-licenses
 

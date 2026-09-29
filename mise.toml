@@ -3,6 +3,7 @@
 [tools]
 prek = "0.5.4"
 rumdl = "0.2.77"
+yq = "4.54.1"
 
 [tasks.validate]
 description = "Validate repository structure, licensing, and Markdown"
@@ -35,3 +36,7 @@ run = "prek run --all-files"
 [tasks.list-skills]
 description = "List immediate skill directories"
 run = "tooling/validate.sh list-skills"
+
+[tasks.test-validator]
+description = "Run repository validator regression tests"
+run = "tooling/tests/validate.sh"

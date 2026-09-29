@@ -74,13 +74,15 @@ mise run lint-markdown
 mise run check-markdown-format
 mise run format-markdown
 mise run list-skills
+mise run test-validator
 ```
 
 `validate` checks repository structure, licensing conventions, and Markdown.
 Use `lint-markdown` to run the Markdown linter directly,
 `check-markdown-format` to verify formatting without changing files, and
 `format-markdown` to apply formatting. `check-licenses` runs the licensing
-checks directly. `list-skills` prints the names of immediate skill directories
-and succeeds without output while the repository contains no skills.
+checks directly. `list-skills` validates and prints the names of immediate skill
+directories, and succeeds without output while the repository contains no
+skills. `test-validator` runs the validator's regression tests.
 
 <!-- SPDX-License-Identifier: CC-BY-NC-SA-4.0 -->

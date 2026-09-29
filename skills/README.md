@@ -15,11 +15,15 @@ Only `SKILL.md` is mandatory. The remaining directories are optional.
 
 ## `SKILL.md`
 
-Include metadata/frontmatter required by the target Agent Skills format, the
-skill's purpose, clear trigger or use conditions, its primary workflow,
-essential constraints, and pointers to supporting material. Keep it focused on
-the decisions and steps the agent needs on every invocation rather than turning
-it into a large knowledge dump.
+Begin the file with YAML frontmatter containing `name` and `description`. The
+name must match the parent directory and contain 1–64 lowercase ASCII letters,
+digits, or single hyphens, without a leading or trailing hyphen. The description
+must be a non-empty string of at most 1,024 characters.
+
+After the frontmatter, include the skill's purpose, clear trigger or use
+conditions, primary workflow, essential constraints, and pointers to supporting
+material. Keep it focused on the decisions and steps the agent needs on every
+invocation rather than turning it into a large knowledge dump.
 
 ## `references/`
 
