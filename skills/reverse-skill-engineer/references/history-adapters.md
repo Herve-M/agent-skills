@@ -137,7 +137,9 @@ paths.
 Output is JSONL with a `skill-evidence/v1` header and normalized events: source
 line, byte offset, original line digest/size, type, role or tool linkage when
 known, and a bounded preview. Limits apply per line, preview, event count and
-total output characters. Oversized/malformed records are omitted with locators.
+total output characters. A record stop limit prevents reading the next record;
+hashing oversized records within the limit still requires reading their bytes.
+Oversized/malformed records are omitted with locators.
 Unknown events/fields remain in the untouched source; names and digests retain
 their presence without copying arbitrary payloads. Digests identify records,
 not a snapshot of the whole file; live appends may change later extracts.
@@ -146,8 +148,12 @@ The tool opens inputs read-only, does not execute transcript commands, makes no
 network calls and emits only to stdout. Store redirected extracts privately.
 Automatic redaction masks common credential forms, secret fields and environment
 assignments; it may also hide benign assignments. A complete private-key BEGIN
-or END delimiter anywhere in a structured tool argument/result causes the entire
-rendered value to be redacted, including unrelated content in that value.
+or END delimiter anywhere in a structured tool argument/result, including one
+split across adjacent strings in a list, causes the entire rendered value to be
+redacted, including unrelated content in that value. Fragment scanning uses
+bounded overlap; non-string list elements end a chunk sequence, and dictionary
+fields are inspected independently. Lists are conservatively treated as ordered
+chunks even when their strings were intended as separate items.
 Ordinary string redaction remains local to the matched content. It cannot
 guarantee secrecy for arbitrary values, personal data, filenames or unfamiliar
 credential formats. Inspect excerpts before sharing. Missing/redacted facts

@@ -3,13 +3,18 @@
 """Synthetic integration checks for read-only extraction and privacy boundaries."""
 
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
+
+import history
 
 
 SCRIPT = Path(__file__).with_name("history.py")
@@ -162,6 +167,106 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(output[2]["tools"][0]["name"], "fixture-tool")
         result, output = self.run_helper("window", "--line", "1", "--verified-format", "synthetic fixture", adapter="claude-local")
         self.assertEqual(output[1]["tools"][0]["text"], "[output omitted]")
+
+    def test_private_key_delimiters_split_across_ordered_chunks(self):
+        body = "SYNTHETICFRAGMENTKEYBODY"
+        begin = "-----BEGIN OPENSSH PRIVATE KEY-----"
+        end = "-----END OPENSSH PRIVATE KEY-----"
+        cases = {
+            "split-label": {"chunks": ["-----BEGIN PRIVATE ", "KEY-----\n" + body +
+                                      "\n-----END PRIVATE ", "KEY-----"]},
+            "character-chunks": {"chunks": [*begin, body, *end]},
+            "nested-list": {"outer": {"chunks": [[*begin, body, *end]]}},
+            "closing-only": {"chunks": [body, *end]},
+            "large-prefix": {"chunks": ["ordinary " * 600 + begin[:7], begin[7:], body]},
+            "json-encoded": json.dumps({"chunks": [*begin, body, *end]}),
+        }
+        for name, value in cases.items():
+            for adapter in ("codex", "claude-local"):
+                for tool_result in (False, True):
+                    with self.subTest(case=name, adapter=adapter, tool_result=tool_result):
+                        if adapter == "codex":
+                            kind = "function_call_output" if tool_result else "function_call"
+                            field = "output" if tool_result else "arguments"
+                            record = {"type": "response_item", "payload": {
+                                "type": kind, "call_id": "fragment-call", field: value}}
+                        else:
+                            block = ({"type": "tool_result", "tool_use_id": "fragment-call", "content": value}
+                                     if tool_result else {"type": "tool_use", "id": "fragment-call", "input": value})
+                            record = {"type": "assistant", "message": {"content": [block]}}
+                        self.write([record])
+                        original = self.source.read_bytes()
+                        flags = ("--include-tool-output",) if tool_result else ()
+                        if adapter == "claude-local":
+                            flags += ("--verified-format", "synthetic fixture")
+                        result, output = self.run_helper("window", "--line", "1", *flags, adapter=adapter)
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        event = output[1] if adapter == "codex" else output[1]["tools"][0]
+                        self.assertEqual(event["text"], "[REDACTED KEY]")
+                        self.assertEqual(event["call_id"], "fragment-call")
+                        self.assertNotIn(body, result.stdout)
+                        self.assertEqual(output[1]["sha256"], hashlib.sha256(original).hexdigest())
+                        self.assertEqual(self.source.read_bytes(), original)
+
+    def test_fragment_scan_preserves_public_keys_and_independent_fields(self):
+        cases = [
+            {"chunks": ["item one", "item two"]},
+            {"chunks": [*"-----BEGIN PUBLIC KEY-----", "public material", *"-----END PUBLIC KEY-----"]},
+            {"first": "-----BEGIN PRIVATE ", "second": "KEY-----"},
+            {"chunks": ["-----BEGIN PRIVATE ", {"text": "unrelated"}, "KEY-----"]},
+            {"chunks": ["-----BEGIN PRIVATE ", 42, "KEY-----"]},
+            {"chunks": ["-----BEGIN PRIVATE ", ["unrelated"], "KEY-----"]},
+        ]
+        for value in cases:
+            with self.subTest(value=value):
+                self.write([{"type": "response_item", "payload": {
+                    "type": "function_call", "arguments": value}}])
+                result, output = self.run_helper("window", "--line", "1")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(output[1]["text"]), value)
+
+    def test_record_limits_bound_actual_reads(self):
+        line = b'{"type":"unknown","payload":{}}\n'
+        oversized = b'x' * (128 * 1024) + b'\n'
+        original = line * 16 + oversized
+
+        class CountedStream(io.BytesIO):
+            bytes_read = 0
+
+            def readline(self, size=-1):
+                data = super().readline(size)
+                self.bytes_read += len(data)
+                return data
+
+        args = SimpleNamespace(input=self.source, adapter="codex", max_line_bytes=128,
+                               include_tool_output=False)
+        for stop in (0, 1, 16, 20, None):
+            with self.subTest(stop=stop):
+                stream = CountedStream(original)
+                with patch.object(Path, "open", return_value=stream):
+                    output = list(history.events(args, stop=stop))
+                expected = min(stop, 17) if stop is not None else 17
+                self.assertEqual(len(output), expected)
+                expected_bytes = len(line) * expected if expected <= 16 else len(original)
+                self.assertEqual(stream.bytes_read, expected_bytes)
+                if expected == 17:
+                    self.assertEqual(output[-1]["note"], "oversized line omitted")
+
+        args.command, args.line, args.before, args.after, args.include_line = "window", 1, 0, 0, [3]
+        stream = CountedStream(original)
+        with patch.object(Path, "open", return_value=stream):
+            output = list(history.select(args))
+        self.assertEqual([event["line"] for event in output], [1, 3])
+        self.assertEqual(stream.bytes_read, len(line) * 3)
+
+        self.source.write_bytes(original)
+        args.command, args.root, args.max_files, args.session_id, args.cwd = "discover", self.root, 10, None, None
+        stream = CountedStream(original)
+        with patch.object(Path, "open", return_value=stream):
+            output = list(history.select(args))
+        self.assertEqual(len(output), 1)
+        self.assertEqual(output[0]["bytes"], len(original))
+        self.assertEqual(stream.bytes_read, len(line) * 16)
 
     def test_structured_redaction_preserves_ordinary_values_and_output_limits(self):
         public_key = "-----BEGIN PUBLIC KEY-----\npublic-material\n-----END PUBLIC KEY-----"

@@ -4,6 +4,7 @@
 
 import argparse
 import hashlib
+from itertools import islice
 import json
 import os
 from pathlib import Path
@@ -45,7 +46,20 @@ def contains_private_key_boundary(value):
         return any(contains_private_key_boundary(key) or contains_private_key_boundary(item)
                    for key, item in value.items())
     if isinstance(value, list):
-        return any(contains_private_key_boundary(item) for item in value)
+        scanner = PrivateKeyScanner()
+        for item in value:
+            if isinstance(item, str):
+                # Adjacent strings may be ordered chunks of a single delimiter.
+                for offset in range(0, len(item), 4096):
+                    scanner.feed(item[offset:offset + 4096].encode("utf-8", errors="replace"))
+                    if scanner.redact_line:
+                        return True
+            else:
+                # Nested containers and other values end this string sequence.
+                scanner = PrivateKeyScanner()
+            if contains_private_key_boundary(item):
+                return True
+        return False
     return isinstance(value, str) and bool(PRIVATE_KEY_BOUNDARY.search(value))
 
 
@@ -56,7 +70,7 @@ def render(value):
             value = json.loads(value)
         except (ValueError, RecursionError):
             pass
-    # Container ordering cannot establish which strings belong to a key body.
+    # A detected boundary makes the entire container sensitive, regardless of body order.
     if isinstance(value, (dict, list)) and contains_private_key_boundary(value):
         return "[REDACTED KEY]"
     value = scrub(value)
@@ -143,7 +157,7 @@ ADAPTERS = {"codex": codex, "claude-local": claude}
 
 
 class PrivateKeyScanner:
-    """Track text key boundaries with bounded memory, including discarded chunks."""
+    """Track key boundaries with bounded memory across ordered chunks."""
 
     tokens = re.compile(rb"-----BEGIN |-----END |PRIVATE KEY-----")
     overlap_bytes = len(b"PRIVATE KEY-----") - 1
@@ -209,11 +223,9 @@ def read_lines(path, max_bytes, on_chunk=None):
 
 def events(args, stop=None):
     scanner = PrivateKeyScanner() if args.adapter == "text" else None
-    for number, locator, data in read_lines(args.input, args.max_line_bytes,
-                                          scanner.feed if scanner else None):
+    reader = read_lines(args.input, args.max_line_bytes, scanner.feed if scanner else None)
+    for number, locator, data in islice(reader, stop):
         redact_line = scanner.finish_line() if scanner else False
-        if stop is not None and number > stop:
-            break
         event = {**locator, "source_type": "unparsed"}
         try:
             if data is None:
