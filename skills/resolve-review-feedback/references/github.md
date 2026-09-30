@@ -2,7 +2,8 @@
 
 ## Tool routing and terminology
 
-Checked 2026-09-30. Verify installed schemas and host support at execution time.
+Checked 2026-09-30 (Asia/Ho_Chi_Minh, UTC+07:00). Verify installed schemas and
+host support at execution time.
 The
 [pull_requests MCP endpoint](https://api.githubcopilot.com/mcp/x/pull_requests)
 is an authenticated MCP service, not a public REST command catalog. The
@@ -51,6 +52,14 @@ explicit PR number and `--repo '[HOST/]OWNER/REPO'` after selection.
 the complete review-thread resolution model; `reviewThreads` is not a documented
 JSON field.
 
+Set `pr_host` from the verified PR URL or remote identity. Pass
+`--hostname "$pr_host"` to every `gh api` discovery, nested-comment retrieval,
+reply, and resolution command. A previous `gh pr view --repo HOST/...` does not
+carry host selection into another invocation. Explicit `--hostname` also avoids
+depending on an unset or conflicting `GH_HOST`; the API command otherwise
+defaults to github.com. Stop if the returned repository or PR identity does not
+match.
+
 When thread-capable MCP is unavailable, use
 [gh api](https://cli.github.com/manual/gh_api) with GraphQL. This is the CLI's
 API transport, not an invented `gh pr resolve` command. A query shaped as
@@ -85,7 +94,8 @@ query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
 Save the authored query to a temporary file, then pass it as a field:
 
 ```sh
-gh api graphql --paginate -F owner="$pr_owner" -F repo="$pr_repo" \
+gh api --hostname "$pr_host" graphql --paginate \
+  -F owner="$pr_owner" -F repo="$pr_repo" \
   -F number="$pr_number" -F query=@/tmp/review-threads.graphql
 ```
 
@@ -120,12 +130,14 @@ When MCP cannot reply, use CLI transport with an authored JSON body file:
 
 ```sh
 pr_reply_endpoint="repos/$pr_owner/$pr_repo/pulls/$pr_number/comments"
-gh api --method POST "$pr_reply_endpoint/$root_comment_id/replies" \
+gh api --hostname "$pr_host" --method POST \
+  "$pr_reply_endpoint/$root_comment_id/replies" \
   --input /tmp/review-reply.json
 ```
 
 For authorized resolution prefer capable MCP. Otherwise invoke GraphQL through
-`gh api graphql`, supplying the thread node ID as a variable:
+`gh api --hostname "$pr_host" graphql`, supplying the thread node ID as a
+variable:
 
 ```graphql
 mutation($thread: ID!) {
@@ -135,8 +147,17 @@ mutation($thread: ID!) {
 }
 ```
 
+Save the mutation to a temporary file, then invoke it against the verified host:
+
+```sh
+gh api --hostname "$pr_host" graphql -F thread="$thread_id" \
+  -F query=@/tmp/resolve-review-thread.graphql
+```
+
 If CLI transport is unavailable, use an authenticated direct REST request for a
-reply or GraphQL request to the host's GraphQL endpoint for resolution. Preserve
+reply or GraphQL request to the verified host's GraphQL endpoint for resolution.
+Derive direct API endpoints from the same verified host, never a hardcoded
+github.com default. Preserve
 variables and structured JSON; never interpolate review bodies into shell
 commands. Read back the thread after mutation. Inspect GraphQL `errors` even
 with HTTP 200. After a timeout, read before retrying to avoid duplicate replies.

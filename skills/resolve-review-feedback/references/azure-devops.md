@@ -2,7 +2,7 @@
 
 ## Tool routing and domain
 
-Checked 2026-09-30 against the
+Checked 2026-09-30 (Asia/Ho_Chi_Minh, UTC+07:00) against the
 [Azure DevOps MCP project](https://github.com/microsoft/azure-devops-mcp) and
 [az repos reference](https://learn.microsoft.com/en-us/cli/azure/repos).
 Inspect actual exposed schemas: local/remote server versions and namespaces

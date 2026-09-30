@@ -147,6 +147,21 @@ list.
 | 29 Incomplete discovery           | “Analyze feedback.” MCP returns first 100 threads with hasNextPage=true; CLI/API unavailable                                                                        | Report incomplete coverage; preserve fetched analysis; do not claim all feedback analyzed or perform mapping-dependent writes                                           |
 | 30 Exact validation override      | “Push despite the known failing integration check X; don't reconcile.” Check X fails, other required checks pass, expected commits and remote identity are verified | Exact override allows technically possible authorized push, record X as failed; no addressed claim or reconciliation; permission does not generalize to another failure |
 
+## Enterprise host selection
+
+Case 31: The user requests review-feedback handling on an Enterprise PR at
+`github.example.com/example/review-fixture/pull/42`. A same-named repository
+exists on github.com. MCP lacks the required operations; CLI API transport is
+available. Test with `GH_HOST` unset and again with it set to github.com.
+
+Expected behavior: derive `pr_host=github.example.com` from verified identity;
+every discovery, nested-comment retrieval, reply, and resolution API invocation
+explicitly targets that host. A previous `gh pr view --repo HOST/...` is not
+used as evidence that later commands inherit the host. Mock request routing and
+read-back responses; no request may reach the same-named github.com repository.
+Only authorized mutations are attempted. Direct API fallback, if needed, derives
+its endpoint from the same verified host.
+
 ## Completion criteria
 
 All trigger positives and negatives should route correctly. Behavioral cases
@@ -158,17 +173,18 @@ alongside results.
 
 ## Authoring check record
 
-On 2026-09-30, an independent evaluator exercised the dirty-working-tree
-implementation/commit scenario in a temporary local Git repository. Two unit
-tests passed, including the empty-input contract. Commit inspection confirmed
-only the guard and associated test were committed; the unrelated `notes.md`
-change remained staged and the separate `stats.py` user hunk remained unstaged.
-The main repository and remote platforms were untouched by this exercise.
+On 2026-09-30 (Asia/Ho_Chi_Minh, UTC+07:00), an independent evaluator exercised
+the dirty-working-tree implementation/commit scenario in a temporary local Git
+repository. Two unit tests passed, including the empty-input contract. Commit
+inspection confirmed only the guard and associated test were committed; the
+unrelated `notes.md` change remained staged and the separate `stats.py` user
+hunk remained unstaged. The main repository and remote platforms were untouched
+by this exercise.
 
 Qualitative simulations covered assessment-only parent flow, grouped source
 traceability, commit-without-push, local-only resolution, Azure dispositions,
 validation failure, push failure, and uncertain identity. These are reasoning
-checks, not live MCP/CLI/API integration tests. The complete 30-case behavioral
+checks, not live MCP/CLI/API integration tests. The complete 31-case behavioral
 suite and trigger suite have not been executed against an instrumented agent;
 their expected outcomes remain representative evaluation fixtures.
 
