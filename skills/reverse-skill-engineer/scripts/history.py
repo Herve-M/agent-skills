@@ -12,6 +12,7 @@ import sys
 
 
 SECRET_KEY = re.compile(r"token|secret|password|credential|authorization|api.?key", re.I)
+PRIVATE_KEY_BOUNDARY = re.compile(r"-----(?:BEGIN|END) [^-\r\n]*PRIVATE KEY-----")
 REDACTIONS = [
     (r"-----BEGIN [^-]*PRIVATE KEY-----.*?(?:-----END [^-]*PRIVATE KEY-----|$)", "[REDACTED KEY]"),
     (r"\b(?:sk-[\w-]{8,}|gh[pousr]_[\w]{8,}|AKIA[A-Z0-9]{16})\b", "[REDACTED TOKEN]"),
@@ -39,6 +40,15 @@ def scrub(value):
     return redact(value) if isinstance(value, str) else value
 
 
+def contains_private_key_boundary(value):
+    if isinstance(value, dict):
+        return any(contains_private_key_boundary(key) or contains_private_key_boundary(item)
+                   for key, item in value.items())
+    if isinstance(value, list):
+        return any(contains_private_key_boundary(item) for item in value)
+    return isinstance(value, str) and bool(PRIVATE_KEY_BOUNDARY.search(value))
+
+
 def render(value):
     # Tool arguments are often JSON encoded inside a string.
     if isinstance(value, str):
@@ -46,6 +56,9 @@ def render(value):
             value = json.loads(value)
         except (ValueError, RecursionError):
             pass
+    # Container ordering cannot establish which strings belong to a key body.
+    if isinstance(value, (dict, list)) and contains_private_key_boundary(value):
+        return "[REDACTED KEY]"
     value = scrub(value)
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=True)
 

@@ -145,10 +145,14 @@ not a snapshot of the whole file; live appends may change later extracts.
 The tool opens inputs read-only, does not execute transcript commands, makes no
 network calls and emits only to stdout. Store redirected extracts privately.
 Automatic redaction masks common credential forms, secret fields and environment
-assignments; it may also hide benign assignments. It cannot guarantee secrecy
-for arbitrary values, personal data, filenames or unfamiliar credential formats.
-Inspect excerpts before sharing. Missing/redacted facts reduce confidence; use
-private inspection rather than expanding raw outputs indiscriminately.
+assignments; it may also hide benign assignments. A complete private-key BEGIN
+or END delimiter anywhere in a structured tool argument/result causes the entire
+rendered value to be redacted, including unrelated content in that value.
+Ordinary string redaction remains local to the matched content. It cannot
+guarantee secrecy for arbitrary values, personal data, filenames or unfamiliar
+credential formats. Inspect excerpts before sharing. Missing/redacted facts
+reduce confidence; use private inspection rather than expanding raw outputs
+indiscriminately.
 
 To add an adapter, map its verified input to message, tool call/result, metadata
 or unknown events in `ADAPTERS`. Preserve source locators, distinguish human

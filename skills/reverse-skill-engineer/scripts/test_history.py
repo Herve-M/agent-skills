@@ -94,6 +94,105 @@ class HistoryTests(unittest.TestCase):
         for secret in ("nested-secret", "environment-secret", "flag-secret", "result-secret", "private-key-body"):
             self.assertNotIn(secret, result.stdout)
 
+    def test_structured_tool_result_with_split_key_is_redacted_as_a_whole(self):
+        self.write([
+            {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "split-key-call",
+             "output": {"lines": ["-----BEGIN PRIVATE KEY-----", "SYNTHETICPRIVATEKEYBODY",
+                                   "-----END PRIVATE KEY-----"], "other": "unrelated output"}}},
+        ])
+        original = self.source.read_bytes()
+        result, output = self.run_helper("window", "--line", "1", "--include-tool-output")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("SYNTHETICPRIVATEKEYBODY", result.stdout)
+        self.assertNotIn("unrelated output", result.stdout)
+        self.assertEqual(output[1]["text"], "[REDACTED KEY]")
+        self.assertEqual(output[1]["call_id"], "split-key-call")
+        self.assertEqual(output[1]["sha256"], hashlib.sha256(original).hexdigest())
+        self.assertEqual(output[1]["byte_offset"], 0)
+        self.assertEqual(self.source.read_bytes(), original)
+
+    def test_structured_key_redaction_covers_arguments_and_unordered_results(self):
+        begin = "-----BEGIN OPENSSH PRIVATE KEY-----"
+        end = "-----END OPENSSH PRIVATE KEY-----"
+        body = "SYNTHETICPRIVATEKEYBODY"
+        cases = {
+            "list": [begin, body, end],
+            "body-first-dictionary": {"body": body, "header": begin, "footer": end},
+            "nested-siblings": {"header": {"text": begin}, "body": {"lines": [body]}, "footer": end},
+            "json-encoded": json.dumps({"lines": [begin, body, end]}),
+            "opening-only": {"header": begin, "body": body},
+            "closing-only": {"body": body, "footer": end},
+            "delimiter-in-key": {begin: body},
+        }
+        for name, value in cases.items():
+            for event_type, field in (("function_call", "arguments"), ("function_call_output", "output")):
+                with self.subTest(case=name, event_type=event_type):
+                    self.write([
+                        {"type": "response_item", "payload": {"type": event_type, "name": "fixture-tool",
+                         "call_id": "sensitive-call", field: value}},
+                        {"type": "response_item", "payload": {"type": event_type, "name": "fixture-tool",
+                         "call_id": "clean-call", field: {"text": "ordinary output"}}},
+                    ])
+                    flags = ("--include-tool-output",) if event_type == "function_call_output" else ()
+                    result, output = self.run_helper("window", "--line", "1", *flags)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertNotIn(body, result.stdout)
+                    self.assertEqual(output[1]["text"], "[REDACTED KEY]")
+                    self.assertEqual(output[1]["call_id"], "sensitive-call")
+                    self.assertEqual(json.loads(output[2]["text"]), {"text": "ordinary output"})
+                    if event_type == "function_call":
+                        self.assertEqual(output[1]["name"], "fixture-tool")
+
+    def test_split_keys_in_claude_content_blocks_are_redacted(self):
+        content = [{"type": "text", "text": text} for text in
+                   ("-----BEGIN RSA PRIVATE KEY-----", "SYNTHETICCLAUDEKEYBODY", "-----END RSA PRIVATE KEY-----")]
+        self.write([
+            {"type": "user", "message": {"role": "user", "content":
+             [{"type": "tool_result", "tool_use_id": "claude-call", "content": content}]}},
+            {"type": "assistant", "message": {"role": "assistant", "content":
+             [{"type": "tool_use", "id": "claude-input", "name": "fixture-tool", "input": {"lines": content}}]}},
+        ])
+        result, output = self.run_helper("window", "--line", "1", "--include-tool-output",
+                                         "--verified-format", "synthetic fixture", adapter="claude-local")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("SYNTHETICCLAUDEKEYBODY", result.stdout)
+        self.assertEqual(output[1]["tools"][0]["text"], "[REDACTED KEY]")
+        self.assertEqual(output[1]["tools"][0]["call_id"], "claude-call")
+        self.assertEqual(output[2]["tools"][0]["text"], "[REDACTED KEY]")
+        self.assertEqual(output[2]["tools"][0]["name"], "fixture-tool")
+        result, output = self.run_helper("window", "--line", "1", "--verified-format", "synthetic fixture", adapter="claude-local")
+        self.assertEqual(output[1]["tools"][0]["text"], "[output omitted]")
+
+    def test_structured_redaction_preserves_ordinary_values_and_output_limits(self):
+        public_key = "-----BEGIN PUBLIC KEY-----\npublic-material\n-----END PUBLIC KEY-----"
+        ordinary = {"lines": ["item one", "item two"], "count": 2, "public": public_key}
+        single_string = ("before\n-----BEGIN PRIVATE KEY-----\nSYNTHETICSTRINGKEYBODY\n"
+                         "-----END PRIVATE KEY-----\nafter")
+        self.write([
+            {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "ordinary", "output": ordinary}},
+            {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "single", "output": single_string}},
+            {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "split",
+             "output": ["-----BEGIN ENCRYPTED PRIVATE KEY-----", "SYNTHETICSPLITKEYBODY", "-----END ENCRYPTED PRIVATE KEY-----"]}},
+        ])
+        result, output = self.run_helper("window", "--line", "1", "--include-tool-output")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(output[1]["text"]), ordinary)
+        self.assertEqual(output[2]["text"], "before\n[REDACTED KEY]\nafter")
+        self.assertEqual(output[3]["text"], "[REDACTED KEY]")
+        result, output = self.run_helper("window", "--line", "1")
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(all(event["text"] == "[output omitted]" for event in output[1:]))
+        result, output = self.run_helper("window", "--line", "3", "--before", "0", "--after", "0",
+                                         "--include-tool-output", "--chars", "5")
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(output[1]["text_truncated"])
+        self.assertEqual(len(output[1]["text"]), 5)
+        self.assertNotIn("SYNTHETICSPLITKEYBODY", result.stdout)
+        result, output = self.run_helper("window", "--line", "1", "--include-tool-output", "--budget", "1200")
+        self.assertEqual(result.returncode, 3)
+        self.assertLessEqual(len(result.stdout), 1200)
+        self.assertNotIn("SYNTHETICSTRINGKEYBODY", result.stdout)
+
     def test_claude_tool_results_are_not_corrections(self):
         self.write([
             {"type": "assistant", "uuid": "a1", "message": {"role": "assistant", "content":
