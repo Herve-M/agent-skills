@@ -173,6 +173,107 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(output[1]["kind"], "export_line")
         self.assertNotIn("role", output[1])
 
+    def test_oversized_key_delimiters_still_redact_text(self):
+        original = (b"-----BEGIN OPENSSH PRIVATE KEY-----\nABC123\n"
+                    b"-----END OPENSSH PRIVATE KEY-----\nafter\n")
+        self.source.write_bytes(original)
+        result, output = self.run_helper("window", "--line", "2", "--max-line-bytes", "10", adapter="text")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("ABC123", result.stdout)
+        self.assertEqual(output[2]["text"], "[REDACTED KEY]")
+        self.assertEqual(output[4]["text"], "after\n")
+        self.assertEqual(output[1]["kind"], "unknown")
+        offset = 0
+        for event, line in zip(output[1:], original.splitlines(keepends=True)):
+            self.assertEqual(event["sha256"], hashlib.sha256(line).hexdigest())
+            self.assertEqual(event["raw_bytes"], len(line))
+            self.assertEqual(event["byte_offset"], offset)
+            offset += len(line)
+        self.assertEqual(self.source.read_bytes(), original)
+
+    def test_key_redaction_is_independent_of_chunk_and_line_caps(self):
+        for label in ("", "RSA ", "EC ", "ENCRYPTED ", "OPENSSH "):
+            for cap in (1, 2, 7, 10, 16, 200):
+                with self.subTest(label=label, cap=cap):
+                    self.source.write_text(f"-----BEGIN {label}PRIVATE KEY-----\nK\n"
+                                           f"-----END {label}PRIVATE KEY-----\n.")
+                    result, output = self.run_helper("window", "--line", "2", "--max-line-bytes", str(cap), adapter="text")
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    body = output[2]
+                    if cap >= 2:
+                        self.assertEqual(body["text"], "[REDACTED KEY]")
+                    else:
+                        self.assertEqual(body["kind"], "unknown")
+                    self.assertEqual(output[4]["text"], ".")
+
+    def test_key_markers_after_long_prefixes_and_across_long_labels(self):
+        for prefix, label in (("." * 4096, "RSA "), ("", "A" * 4096 + " ")):
+            with self.subTest(prefix_length=len(prefix), label_length=len(label)):
+                self.source.write_text(f"{prefix}-----BEGIN {label}PRIVATE KEY-----\nABC123\n"
+                                       f"{prefix}-----END {label}PRIVATE KEY-----\nafter\n")
+                result, output = self.run_helper("window", "--line", "2", "--max-line-bytes", "10", adapter="text")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("ABC123", result.stdout)
+                self.assertEqual(output[4]["text"], "after\n")
+                # Boundaries outside the selected window still control its redaction.
+                result, output = self.run_helper("window", "--line", "2", "--before", "0", "--after", "0",
+                                                 "--max-line-bytes", "10", adapter="text")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(output[1]["text"], "[REDACTED KEY]")
+
+    def test_key_boundaries_follow_byte_order_and_reset_at_line_end(self):
+        self.source.write_text(
+            "-----BEGIN PRIVATE KEY----- inline-body -----END PRIVATE KEY-----\n"
+            "ordinary\n-----BEGIN RSA PRIVATE KEY-----\ninside-one\n"
+            "-----END RSA PRIVATE KEY----- gap -----BEGIN ENCRYPTED PRIVATE KEY-----\n"
+            "inside-two\n-----END ENCRYPTED PRIVATE KEY-----\nordinary-again\n"
+            "-----BEGIN RSA\nPRIVATE KEY-----\nvisible\n"
+            "-----BEGIN OPENSSH PRIVATE KEY-----\nunterminated")
+        result, output = self.run_helper("window", "--line", "6", adapter="text")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for secret in ("inline-body", "inside-one", "inside-two", "unterminated"):
+            self.assertNotIn(secret, result.stdout)
+        for line in (1, 3, 4, 5, 6, 7, 12, 13):
+            self.assertEqual(output[line]["text"], "[REDACTED KEY]")
+        for line, expected in ((2, "ordinary\n"), (8, "ordinary-again\n"),
+                               (10, "PRIVATE KEY-----\n"), (11, "visible\n")):
+            self.assertEqual(output[line]["text"], expected)
+        result, output = self.run_helper("window", "--line", "6", "--budget", "1400", adapter="text")
+        self.assertEqual(result.returncode, 3)
+        self.assertLessEqual(len(result.stdout), 1400)
+        self.assertNotIn("inline-body", result.stdout)
+        result, output = self.run_helper("window", "--line", "6", "--max-events", "2", adapter="text")
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(len(output), 4)  # Header, two events, limit notice.
+
+    def test_mixed_claude_records_preserve_top_level_corrections(self):
+        text = {"type": "text", "text": "Please inspect the next page first."}
+        tool = {"type": "tool_result", "tool_use_id": "tc1", "content":
+                [{"type": "text", "text": "private tool-result text"}]}
+        self.write([
+            {"type": "user", "message": {"role": "user", "content": [tool, text]}},
+            {"type": "user", "message": {"role": "user", "content": [text, tool]}},
+            {"type": "user", "message": {"role": "user", "content": [tool]}},
+            {"type": "user", "isMeta": True, "message": {"content": [tool, text]}},
+            {"type": "user", "isSynthetic": True, "message": {"content": [tool, text]}},
+            {"type": "assistant", "message": {"role": "assistant", "content": [tool, text]}},
+        ])
+        args = ("--verified-format", "synthetic fixture")
+        result, output = self.run_helper("candidates", "--query", "next page", *args, adapter="claude-local")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([event["line"] for event in output[1:]], [1, 2])
+        for event in output[1:]:
+            self.assertTrue(event["candidate"])
+            self.assertEqual(event["text"], text["text"])
+            self.assertEqual(event["tools"][0]["call_id"], "tc1")
+            self.assertEqual(event["tools"][0]["text"], "[output omitted]")
+        self.assertNotIn("private tool-result text", result.stdout)
+        result, output = self.run_helper("candidates", *args, adapter="claude-local")
+        self.assertEqual([event["line"] for event in output[1:]], [1, 2])
+        result, output = self.run_helper("candidates", "--query", "private tool-result", *args, adapter="claude-local")
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(len(output), 1)  # Nested tool-result text is not correction text.
+
     def test_configured_discovery_no_assumed_home_or_symlinks(self):
         sessions = self.root / "verified-sessions"
         sessions.mkdir()

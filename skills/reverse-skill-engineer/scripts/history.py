@@ -121,15 +121,51 @@ def claude(record, outputs):
             "session_id": record.get("sessionId"), "cwd": record.get("cwd"),
             "version": record.get("version"), "text": text, "tools": tools,
             "unknown_blocks": unknown_blocks,
-            # Tool results and synthetic user messages are not human corrections.
+            # Top-level user text remains a candidate even alongside tool results.
             "candidate": bool(text) and record.get("type") == "user" and
-            not record.get("isMeta") and not record.get("isSynthetic") and not tools}
+            not record.get("isMeta") and not record.get("isSynthetic")}
 
 
 ADAPTERS = {"codex": codex, "claude-local": claude}
 
 
-def read_lines(path, max_bytes):
+class PrivateKeyScanner:
+    """Track text key boundaries with bounded memory, including discarded chunks."""
+
+    tokens = re.compile(rb"-----BEGIN |-----END |PRIVATE KEY-----")
+    overlap_bytes = len(b"PRIVATE KEY-----") - 1
+
+    def __init__(self):
+        self.overlap = b""
+        self.pending_boundary = None
+        self.inside = False
+        self.redact_line = False
+
+    def feed(self, chunk):
+        data = self.overlap + chunk
+        for match in self.tokens.finditer(data):
+            if match.end() <= len(self.overlap):
+                continue  # This token was already processed in the previous chunk.
+            token = match.group()
+            if token == b"-----BEGIN ":
+                self.pending_boundary = True
+            elif token == b"-----END ":
+                self.pending_boundary = False
+            elif self.pending_boundary is not None:
+                self.inside = self.pending_boundary
+                self.redact_line = True
+                self.pending_boundary = None
+        self.overlap = data[-self.overlap_bytes:]
+
+    def finish_line(self):
+        redact_line = self.redact_line
+        self.overlap = b""
+        self.pending_boundary = None
+        self.redact_line = self.inside
+        return redact_line
+
+
+def read_lines(path, max_bytes, on_chunk=None):
     """Stream physical lines; hash oversized lines without retaining their contents."""
     with path.open("rb") as stream:
         number = 0
@@ -138,6 +174,8 @@ def read_lines(path, max_bytes):
             data = stream.readline(max_bytes + 1)
             if not data:
                 return
+            if on_chunk is not None:
+                on_chunk(data)
             number += 1
             digest = hashlib.sha256(data)
             size = len(data)
@@ -147,6 +185,8 @@ def read_lines(path, max_bytes):
                     data = stream.readline(max_bytes + 1)
                     if not data:
                         break
+                    if on_chunk is not None:
+                        on_chunk(data)
                     digest.update(data)
                     size += len(data)
                 data = None
@@ -155,8 +195,10 @@ def read_lines(path, max_bytes):
 
 
 def events(args, stop=None):
-    private_key = False
-    for number, locator, data in read_lines(args.input, args.max_line_bytes):
+    scanner = PrivateKeyScanner() if args.adapter == "text" else None
+    for number, locator, data in read_lines(args.input, args.max_line_bytes,
+                                          scanner.feed if scanner else None):
+        redact_line = scanner.finish_line() if scanner else False
         if stop is not None and number > stop:
             break
         event = {**locator, "source_type": "unparsed"}
@@ -165,11 +207,7 @@ def events(args, stop=None):
                 event.update(kind="unknown", note="oversized line omitted")
             elif args.adapter == "text":
                 text = data.decode("utf-8")
-                if re.search(r"-----BEGIN .*PRIVATE KEY-----", text):
-                    private_key = True
-                safe = "[REDACTED KEY]" if private_key else text
-                if re.search(r"-----END .*PRIVATE KEY-----", text):
-                    private_key = False
+                safe = "[REDACTED KEY]" if redact_line else text
                 event.update(kind="export_line", source_type="text", text=safe)
             else:
                 record = json.loads(data)
