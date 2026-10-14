@@ -4,6 +4,15 @@ This repository is the canonical source for reusable skills for compatible AI co
 
 Machine-specific configuration, global agent settings, and installation or dotfiles bootstrap logic belong in their respective configuration repositories.
 
+## Skills table of contents
+
+| Skill                                                                     | TLDR: when to use                                                                                                                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [improve-agent-instructions](skills/improve-agent-instructions/readme.md) | After repository work, audit lessons and propose or apply durable improvements to agent and developer guidance.                                             |
+| [resolve-review-feedback](skills/resolve-review-feedback/readme.md)       | Assess and address received pull-request review comments on GitHub or Azure DevOps, then validate fixes and reconcile threads within the requested scope.   |
+| [reverse-prompt-engineer](skills/reverse-prompt-engineer/readme.md)       | Turn a conversation's final intended task, corrections, and accepted decisions into one reusable, self-contained initial prompt.                            |
+| [reverse-skill-engineer](skills/reverse-skill-engineer/readme.md)         | Capture corrections during skill execution or analyze session evidence to decide whether an existing skill needs a minimal improvement and regression eval. |
+
 ## Principles
 
 - Maintain one canonical implementation of each skill.
