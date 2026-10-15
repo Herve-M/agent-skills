@@ -56,4 +56,28 @@ of their implementations or associated platform documentation.
   additional Microsoft CLI and REST documentation is linked at each relevant
   use.
 
+## Git convention references
+
+These specifications are linked and summarized in original repository-authored
+prose; no upstream documentation passages or implementation files are copied.
+The skill retains the repository's `CC-BY-NC-SA-4.0` license.
+
+### Angular commit message guidelines
+
+- **Source:** [Angular guidelines](https://github.com/angular/angular/blob/main/contributing-docs/commit-message-guidelines.md#type)
+- **Copyright:** Copyright (c) 2010–2026 Google LLC.
+- **License:** [MIT](https://github.com/angular/angular/blob/main/LICENSE).
+- **Used in:** `skills/git-conventions/SKILL.md`
+- **Modifications:** Original operational summary of type/header conventions;
+  local types added, Angular scopes and mandatory bodies excluded.
+
+### Conventional Branch
+
+- **Source:** [Conventional Branch 1.1.0](https://conventionalbranch.org/)
+- **Copyright:** Conventional Branch contributors; see upstream notices.
+- **License:** [CC-BY-4.0](https://github.com/conventional-branch/conventional-branch/blob/main/LICENSE).
+- **Used in:** `skills/git-conventions/SKILL.md`
+- **Modifications:** Original operational summary; `docs/` added and `chore/`
+  restricted to exclude documentation-only work.
+
 <!-- SPDX-License-Identifier: CC-BY-NC-SA-4.0 -->

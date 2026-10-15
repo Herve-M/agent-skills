@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
+# Codex currently has no supported policy to disable explicit invocation.
+policy:
+  allow_implicit_invocation: true
