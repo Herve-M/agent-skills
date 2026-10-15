@@ -4,6 +4,18 @@ This repository is the canonical source for reusable skills for compatible AI co
 
 Machine-specific configuration, global agent settings, and installation or dotfiles bootstrap logic belong in their respective configuration repositories.
 
+## Install and update
+
+Use [GitHub CLI](https://cli.github.com/) with the [`gh skill` commands](https://github.com/cli/cli/blob/trunk/skills/gh-skill/SKILL.md). Replace `<agent-id>` with your agent's identifier and `git-conventions` with any skill listed below:
+
+```bash
+gh skill preview Herve-M/agent-skills git-conventions
+gh skill install Herve-M/agent-skills git-conventions --agent <agent-id> --scope user
+gh skill update git-conventions
+```
+
+`--scope user` makes the skill available across projects; use `--scope project` to install in the current Git repository. Set `--agent` explicitly to select the target environment. Run `gh skill update --all` to refresh all installed skills.
+
 ## Skills table of contents
 
 | Skill                                                                     | TLDR: when to use                                                                                                                                           |
