@@ -56,4 +56,23 @@ of their implementations or associated platform documentation.
   additional Microsoft CLI and REST documentation is linked at each relevant
   use.
 
+## Grove workflow sources
+
+### Grove CLI
+
+- **Source:** [Grove](https://github.com/sQVe/grove/tree/b95f6a5a6cd03e220ded2e7fef138d74283183b5), including its README, command implementations, and installed CLI help.
+- **Copyright:** Copyright (c) 2025 Oskar Grunning.
+- **License:** [MIT](https://github.com/sQVe/grove/blob/b95f6a5a6cd03e220ded2e7fef138d74283183b5/LICENSE) for the upstream implementation and documentation.
+- **Used in:** `skills/grove/SKILL.md`
+- **Used in:** `skills/grove/references/lifecycle.md`
+- **Modifications:** Independently authored command examples and behavioral summaries; no upstream implementation or documentation passages are copied or vendored. Repository-authored prose retains `CC-BY-NC-SA-4.0`.
+
+### Grove skill in sQVe's dotfiles
+
+- **Source:** [Upstream Grove skill](https://github.com/sQVe/dotfiles/blob/efaffa48bd8f622f82f9a1b55ad442771f33c5ad/claude/skills/grove/SKILL.md).
+- **License:** No license was identified for this skill in the consulted source; no permission to redistribute its text is assumed.
+- **Used in:** `skills/grove/SKILL.md`
+- **Used in:** `skills/grove/references/lifecycle.md`
+- **Modifications:** Consulted as workflow inspiration only. No text or templates are copied or adapted; operational guidance is independently written and checked against Grove's CLI and upstream sources. Personal naming conventions and terminal orchestration are not incorporated.
+
 <!-- SPDX-License-Identifier: CC-BY-NC-SA-4.0 -->
