@@ -8,6 +8,7 @@ Machine-specific configuration, global agent settings, and installation or dotfi
 
 | Skill                                                                     | TLDR: when to use                                                                                                                                           |
 | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [git-conventions](skills/git-conventions/SKILL.md)                        | Apply default commit and branch conventions when repository Git documentation does not override them.                                                       |
 | [grove](skills/grove/SKILL.md)                                            | Create, locate, use, and clean up Grove worktrees for Codex and Claude Code sessions.                                                                       |
 | [improve-agent-instructions](skills/improve-agent-instructions/readme.md) | After repository work, audit lessons and propose or apply durable improvements to agent and developer guidance.                                             |
 | [resolve-review-feedback](skills/resolve-review-feedback/readme.md)       | Assess and address received pull-request review comments on GitHub or Azure DevOps, then validate fixes and reconcile threads within the requested scope.   |
