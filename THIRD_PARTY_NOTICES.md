@@ -75,4 +75,13 @@ of their implementations or associated platform documentation.
 - **Used in:** `skills/grove/references/lifecycle.md`
 - **Modifications:** Consulted as workflow inspiration only. No text or templates are copied or adapted; operational guidance is independently written and checked against Grove's CLI and upstream sources. Personal naming conventions and terminal orchestration are not incorporated.
 
+### Herdr
+
+- **Source:** [Herdr skill](https://github.com/herdrdev/herdr/blob/916fcf8de029c6cac965b50f3cdb9687cd7d1537/skills/herdr/SKILL.md), plus installed Herdr CLI help.
+- **Copyright:** Herdr contributors; see upstream notices.
+- **License:** [Apache-2.0](https://github.com/herdrdev/herdr/blob/916fcf8de029c6cac965b50f3cdb9687cd7d1537/LICENSE) for the upstream project.
+- **Used in:** `skills/grove/SKILL.md`
+- **Used in:** `skills/grove/references/lifecycle.md`
+- **Modifications:** Independently authored integration guidance describing session detection, command discovery, caller context, and workspace lifecycle behavior. No upstream documentation passages or implementation are copied or vendored; repository-authored prose retains `CC-BY-NC-SA-4.0`.
+
 <!-- SPDX-License-Identifier: CC-BY-NC-SA-4.0 -->

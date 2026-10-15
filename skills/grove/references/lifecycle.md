@@ -42,6 +42,8 @@ Before removal, resolve each target and check:
 
 Run removal from a surviving checkout or the workspace root. `grove remove <worktree>` removes the checkout while retaining its branch. Add `--branch` only when branch deletion is requested or clearly included in the authorized cleanup. It can reject unmerged branches before removal.
 
+When the [Herdr integration check](../SKILL.md#herdr-integration) passes, inspect the associated workspace for running agents or commands before cleanup. Append `--herdr` when `remove --help` supports it and closing that workspace is within scope. Unsupported builds remove only the checkout; report any remaining Herdr workspace rather than silently assuming it was closed. Do not close unrelated workspaces or terminate active work without authorization.
+
 If removal refuses a dirty or locked target, inspect and explain the specific obstruction before proceeding. Do not automatically unlock, force, reset, stash, or delete files to make it succeed. `--force` can discard work; combined with `--branch`, it can delete unmerged and unpushed commits. Proceed when existing authorization covers discarding the identified work or overriding the lock; otherwise request only the missing authorization.
 
 ## Prune a set of worktrees
@@ -59,6 +61,8 @@ These previews do not remove worktrees, but they fetch and prune remote refs. Do
 Default pruning selects worktrees whose upstream is gone and also deletes their local branches. `--merged`, `--stale`, and `--detached` expand the selection; age alone does not establish that work is disposable. Use `--merged=<branch>` with the equals sign when supplying a branch.
 
 Review the preview against the authorized targets and the checks above. Execute with the same selection flags plus `--commit` only when the resulting removals and branch deletions are within scope. `--json` is for previews, not the committed operation. If a workspace-wide prune would select unrelated worktrees, remove the authorized named targets instead. Re-list afterward and report any refused or incomplete removals.
+
+If Herdr integration is active and `prune --help` supports `--herdr`, include it in both preview and execution when associated workspace cleanup is intended. Review those workspace targets alongside the worktree targets; a cleanup request does not authorize terminating unrelated sessions.
 
 ## Behavior sources
 
