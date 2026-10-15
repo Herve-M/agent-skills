@@ -3,11 +3,14 @@ name: grove
 description: >-
   Manage Git worktrees with Grove CLI for Codex and Claude Code sessions, integrating Herdr workspaces when running inside Herdr. Use when creating or locating an isolated branch or PR checkout, working in another worktree, or cleaning up session worktrees. Applies to worktree management with Grove, not ordinary Git edits or general agent orchestration.
 license: CC-BY-NC-SA-4.0
+user-invocable: false
 ---
 
 # Grove
 
 Use Grove to prepare and manage worktrees while keeping each coding session attached to the intended checkout. Prefer Grove for worktree lifecycle operations so its configuration, preservation, hooks, and locks apply; ordinary Git inspection and development commands remain appropriate inside a worktree.
+
+This skill is intended for automatic use during worktree tasks. In [Claude Code](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill), `user-invocable: false` disables direct user invocation while preserving model invocation. [Codex](https://developers.openai.com/codex/skills/) does not document an equivalent control; this field does not guarantee that Codex hides or blocks direct invocation.
 
 ## Inspect before acting
 
